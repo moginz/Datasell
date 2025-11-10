@@ -5,7 +5,19 @@ const admin = require('firebase-admin');
 const axios = require('axios');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
-app.use(helmet({...}));
+// CORRECT: Remove the {...} or fix the content
+// CORRECT: Remove the {...} or fix the content
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+        },
+    },
+    crossOriginEmbedderPolicy: false
+}));
 app.use(cors({...}));
 app.use(generalLimiter);
 // and all the rate limiters
