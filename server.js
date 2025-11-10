@@ -18,7 +18,7 @@ app.use(helmet({
     },
     crossOriginEmbedderPolicy: false
 }));
-app.use(cors({...}));
+app.use(cors());
 app.use(generalLimiter);
 // and all the rate limiters
 const app = express();
