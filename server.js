@@ -1,28 +1,27 @@
+javascript
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const session = require('express-session');
-const bcrypt = require('bcryptjs');
-// CORRECT: Remove the {...} or fix the content
-// CORRECT: Remove the {...} or fix the content
-app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-            scriptSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "https:"],
-        },
-    },
-    crossOriginEmbedderPolicy: false
-}));
-app.use(cors());
-app.use(generalLimiter);
-// and all the rate limiters
+
+// Initialize app FIRST
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Basic middleware
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Session
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+;
 
 // ====================
 // RENDER OPTIMIZATIONS & DOMAIN SECURITY
