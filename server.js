@@ -421,7 +421,7 @@ app.post('/api/initialize-payment', requireAuth, async (req, res) => {
         const email = req.session.user.email;
         
         // Calculate Paystack amount (add 3% fee)
-        const paystackAmount = Math.ceil(amount * 100 * 1.03); // Add 3% and convert to kobo
+        const paystackAmount = Math.ceil(amount * 100 * 1.07); // Add 3% and convert to kobo
         
         console.log('💰 Payment calculation:', {
             userAmount: amount,
@@ -579,7 +579,8 @@ const allowedDomains = [
   'datasell.io',
   'datasell.pro',
   'datasell.shop',
-  'localhost:3000' // Keep for local development
+  
+  // Keep for local development
 ];
 
 app.use((req, res, next) => {
@@ -648,7 +649,7 @@ app.post('/api/purchase-data', requireAuth, async (req, res) => {
         if (!/^\d{10}$/.test(phoneNumber)) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'Phone number must be 10 digits' 
+                error: 'Phone number must be 10 digits long' 
             });
         }
 
@@ -809,12 +810,12 @@ app.post('/api/initialize-direct-payment', requireAuth, async (req, res) => {
 
         console.log('💰 Direct payment calculation:', {
             packageAmount: amount,
-            paystackAmount: Math.ceil(amount * 100 * 1.03) / 100,
-            fee: (Math.ceil(amount * 100 * 1.03) - (amount * 100)) / 100
+            paystackAmount: Math.ceil(amount * 100 * 1.07) / 100,
+            fee: (Math.ceil(amount * 100 * 1.07) - (amount * 100)) / 100
         });
 
         // Calculate Paystack amount (add 3% fee)
-        const paystackAmount = Math.ceil(amount * 100 * 1.03);
+        const paystackAmount = Math.ceil(amount * 100 * 1.07);
 
         const paystackResponse = await axios.post(
             `${process.env.PAYSTACK_BASE_URL}/transaction/initialize`,
@@ -913,9 +914,9 @@ app.get('/api/process-direct-purchase/:reference', requireAuth, async (req, res)
                     phone: phoneNumber,
                     volume: volume,
                   reference: reference,
-                  referrer'',
+                  referrer 'userData.phone',
               
-                    webhook: `${process.env.BASE_URL}/api/hubnet-webhook`
+                  webhook: `${process.env.BASE_URL}/api/hubnet-webhook`
                 },
                 {
                     headers: {
