@@ -673,7 +673,7 @@ app.post('/api/purchase-data', requireAuth, async (req, res) => {
                 phone: phoneNumber,
                 volume: volumeValue, // ✅ NOW CORRECT: "1000" instead of "1"
                 reference: reference,
-                referrer: userData.phone,
+                referrer: userData.phone || '',
                 webhook: `${process.env.BASE_URL}/api/hubnet-webhook`
             },
             {
@@ -914,7 +914,7 @@ app.get('/api/process-direct-purchase/:reference', requireAuth, async (req, res)
                     phone: phoneNumber,
                     volume: volume,
                   reference: reference,
-                  referrer 'userData.phone',
+                  referrer: userData.phone || '',
               
                   webhook: `${process.env.BASE_URL}/api/hubnet-webhook`
                 },
