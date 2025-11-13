@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buy Data - DataSell</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css">
+  <style>
+    :root {
+        --primary-color: #6c63ff;
+        --secondary-color: #ff6584;
+        --light-bg: #f8f9fa;
+        --card-radius: 12px;
+        --transition: all 0.3s ease;
+    }
+
+    body {
+        background-color: #f8f9fa;
+        min-height: 100vh;
+        padding-bottom: 80px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .app-header {
+        background: white;
+        border-bottom: 1px solid #e9ecef;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+
+    .app-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #333;
+        margin: 0;
+    }
+
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+        background-color: var(--primary-color);
+        color: white;
+    }
+
+    .app-main {
+        padding: 1rem 0;
+    }
+
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    .network-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .package-card {
+        background: white;
+        border-radius: var(--card-radius);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        border: 2px solid transparent;
+        transition: var(--transition);
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .package-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .package-card.selected {
+        border-color: var(--primary-color);
+        background: rgba(108, 99, 255, 0.05);
+    }
+
+    .package-name {
+        font-weight: 700;
+        color: #333;
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .package-details {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .package-price {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin: 0;
+    }
+
+    .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        padding: 0.5rem 0;
+        z-index: 1000;
+    }
+
+    .nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 0.4rem;
+        text-decoration: none;
+        color: #6c757d;
+        transition: var(--transition);
+        font-size: 0.8rem;
+        min-height: 44px;
+    }
+
+    .nav-item.active {
+        color: var(--primary-color);
+    }
+
+    .nav-item i {
+        font-size: 1.1rem;
+        margin-bottom: 0.2rem;
+    }
+
+    .nav-item span {
+        font-size: 0.7rem;
+        font-weight: 500;
+    }
+
+    .nav-item:hover {
+        color: var(--primary-color);
+    }
+
+    .phone-input-section {
+        background: white;
+        border-radius: var(--card-radius);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .form-control {
+        border-radius: 8px;
+        padding: 0.75rem;
+        border: 1px solid #e0e0e0;
+        transition: var(--transition);
+        font-size: 0.9rem;
+        height: auto;
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(108, 99, 255, 0.25);
+        outline: none;
+    }
+
+    .payment-section {
+        background: white;
+        border-radius: var(--card-radius);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .payment-options {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .payment-option {
+        flex: 1;
+        text-align: center;
+        padding: 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: var(--transition);
+        min-height: 100px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .payment-option.selected {
+        border-color: var(--primary-color);
+        background: rgba(108, 99, 255, 0.05);
+    }
+
+    .payment-option i {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+        color: var(--primary-color);
+    }
+
+    .payment-option .payment-label {
+        font-weight: 600;
+        color: #333;
+        font-size: 0.9rem;
+    }
+
+    .payment-option .payment-desc {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin: 0;
+        line-height: 1.3;
+    }
+
+    .purchase-btn {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        padding: 0.75rem;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: var(--transition);
+        width: 100%;
+        color: white;
+        margin-top: 1rem;
+        border: none;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .purchase-btn:hover:not(:disabled) {
+        background-color: #5a52d5;
+        border-color: #5a52d5;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 99, 255, 0.3);
+    }
+
+    .purchase-btn:disabled {
+        background-color: #6c757d;
+        border-color: #6c757d;
+        transform: none;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    .direct-pay-btn {
+        background-color: #00a859;
+        border-color: #00a859;
+    }
+
+    .direct-pay-btn:hover:not(:disabled) {
+        background-color: #008e4a;
+        border-color: #008e4a;
+        box-shadow: 0 4px 12px rgba(0, 168, 89, 0.3);
+    }
+
+    .wallet-info {
+        background: rgba(108, 99, 255, 0.1);
+        border: 1px solid rgba(108, 99, 255, 0.2);
+        border-radius: var(--card-radius);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+
+    .wallet-balance {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin: 0;
+    }
+
+    .wallet-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin: 0;
+    }
+
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #f3f3f3;
+        border-radius: 50%;
+        border-top-color: var(--primary-color);
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .package-features {
+        display: flex;
+        gap: 1rem;
+        margin-top: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .feature {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    .feature i {
+        color: var(--primary-color);
+    }
+
+    .form-text {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+
+    /* Mobile Styles */
+    @media (max-width: 576px) {
+        .container {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+        
+        .app-title {
+            font-size: 1.3rem;
+        }
+        
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            font-size: 0.8rem;
+        }
+        
+        .package-card {
+            padding: 1rem;
+        }
+        
+        .phone-input-section {
+            padding: 1rem;
+        }
+        
+        .payment-section {
+            padding: 1rem;
+        }
+        
+        .package-price {
+            font-size: 1.3rem;
+        }
+        
+        .payment-options {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .payment-option {
+            min-height: 80px;
+            padding: 0.75rem;
+        }
+        
+        .purchase-btn {
+            padding: 0.75rem;
+            font-size: 0.9rem;
+            min-height: 44px;
+        }
+        
+        .form-control {
+            padding: 0.7rem;
+            font-size: 16px; /* Prevent zoom on iOS */
+        }
+        
+        .wallet-info {
+            padding: 0.75rem;
+        }
+        
+        .wallet-balance {
+            font-size: 1.1rem;
+        }
+        
+        .package-name {
+            font-size: 1rem;
+        }
+        
+        .package-details {
+            font-size: 0.85rem;
+        }
+        
+        .section-title {
+            font-size: 1rem;
+        }
+    }
+
+    /* Small Mobile Devices */
+    @media (max-width: 375px) {
+        .package-card {
+            padding: 0.75rem;
+        }
+        
+        .phone-input-section,
+        .payment-section {
+            padding: 0.75rem;
+        }
+        
+        .payment-option {
+            min-height: 70px;
+            padding: 0.5rem;
+        }
+        
+        .payment-option i {
+            font-size: 1.3rem;
+        }
+        
+        .payment-option .payment-label {
+            font-size: 0.85rem;
+        }
+        
+        .payment-option .payment-desc {
+            font-size: 0.75rem;
+        }
+        
+        .package-features {
+            gap: 0.5rem;
+        }
+        
+        .feature {
+            font-size: 0.75rem;
+        }
+    }
+
+    /* Tablet Styles */
+    @media (min-width: 577px) and (max-width: 768px) {
+        .container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        
+        .payment-options {
+            gap: 0.75rem;
+        }
+        
+        .payment-option {
+            min-height: 90px;
+            padding: 0.875rem;
+        }
+    }
+
+    /* Desktop Styles */
+    @media (min-width: 769px) {
+        .package-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        .payment-option:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+    }
+
+    /* Safe Area Support */
+    @supports(padding: max(0px)) {
+        .bottom-nav {
+            padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+        }
+        
+        .container {
+            padding-left: max(15px, env(safe-area-inset-left));
+            padding-right: max(15px, env(safe-area-inset-right));
+        }
+    }
+
+    /* Focus Styles for Accessibility */
+    .package-card:focus,
+    .payment-option:focus,
+    .purchase-btn:focus,
+    .form-control:focus {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 2px;
+    }
+
+    /* Print Styles */
+    @media print {
+        .bottom-nav,
+        .purchase-btn {
+            display: none !important;
+        }
+        
+        .package-card,
+        .phone-input-section,
+        .payment-section {
+            box-shadow: none;
+            border: 1px solid #ddd;
+        }
+    }
+
+    /* Loading State Improvements */
+    .purchase-btn:disabled .loading-spinner {
+        display: inline-block !important;
+    }
+
+    /* Form Validation */
+    .form-control:invalid:not(:focus):not(:placeholder-shown) {
+        border-color: #dc3545;
+    }
+
+    .form-control:valid:not(:focus):not(:placeholder-shown) {
+        border-color: #198754;
+    }
+
+    /* Button Group Responsiveness */
+    @media (max-width: 576px) {
+        .purchase-btn {
+            margin-top: 0.75rem;
+        }
+    }
+</style>
+</head>
+<body class="mobile-layout">
+    <!-- Header -->
+    <header class="app-header">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center py-3">
+                <a href="/" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <h1 class="app-title">Buy Data</h1>
+                <div class="user-avatar" id="userAvatar">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-main">
+        <div class="container">
+            <!-- Selected Network -->
+            <div class="selected-network mb-3">
+                <div class="network-badge" id="selectedNetwork">
+                    <i class="fas fa-wifi"></i>
+                    <span id="networkName">Selecting Network...</span>
+                </div>
+            </div>
+
+            <!-- Wallet Info -->
+            <div class="wallet-info">
+                <p class="wallet-label">Available Balance</p>
+                <p class="wallet-balance" id="walletBalance">
+                    <span class="loading-spinner" id="balanceLoading"></span>
+                    <span id="balanceText" style="display: none;">₵0.00</span>
+                </p>
+            </div>
+
+            <!-- Phone Number Input -->
+            <div class="phone-input-section">
+                <label for="phoneNumber" class="form-label">Phone Number</label>
+                <input type="tel" class="form-control" id="phoneNumber" placeholder="0241234567" pattern="[0-9]{10}" required>
+                <div class="form-text">Enter 10-digit Ghana number</div>
+            </div>
+
+            <!-- Data Packages -->
+            <div class="packages-section">
+                <h2 class="section-title">Select Data Package</h2>
+                <div id="packagesList">
+                    <div class="text-center py-4">
+                        <div class="loading-spinner"></div>
+                        <p class="mt-2 text-muted">Loading packages...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Method -->
+            <div class="payment-section">
+                <h2 class="section-title">Payment Method</h2>
+                <div class="payment-options">
+                    <div class="payment-option selected" onclick="selectPaymentMethod('wallet')">
+                        <i class="fas fa-wallet"></i>
+                        <div class="payment-label">Wallet</div>
+                        <p class="payment-desc">Pay with your wallet balance</p>
+                    </div>
+                    <div class="payment-option" onclick="selectPaymentMethod('direct')">
+                        <i class="fas fa-credit-card"></i>
+                        <div class="payment-label">Direct Pay</div>
+                        <p class="payment-desc">Pay instantly with card/mobile money</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Purchase Buttons -->
+            <button class="btn purchase-btn" id="walletPurchaseBtn" onclick="purchaseWithWallet()">
+                <span id="walletPurchaseText">Pay with Wallet</span>
+                <span id="walletPurchaseLoading" class="loading-spinner" style="display: none; margin-left: 8px;"></span>
+            </button>
+
+            <button class="btn purchase-btn direct-pay-btn" id="directPurchaseBtn" onclick="purchaseWithDirectPayment()" style="display: none;">
+                <span id="directPurchaseText">Pay with Card/Mobile Money</span>
+                <span id="directPurchaseLoading" class="loading-spinner" style="display: none; margin-left: 8px;"></span>
+            </button>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a href="/" class="nav-item">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </a>
+        <a href="/wallet" class="nav-item">
+            <i class="fas fa-wallet"></i>
+            <span>Wallet</span>
+        </a>
+        <a href="/orders" class="nav-item">
+            <i class="fas fa-shopping-bag"></i>
+            <span>Orders</span>
+        </a>
+        <a href="/profile" class="nav-item">
+            <i class="fas fa-user"></i>
+            <span>Profile</span>
+        </a>
+    </nav>
+
+    <!-- Paystack Payment Script -->
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
+    <script>
+        // Initialize Notyf
+        const notyf = new Notyf({
+            duration: 4000,
+            position: { x: 'center', y: 'top' }
+        });
+
+        let currentUser = null;
+        let userBalance = 0;
+        let selectedNetwork = null;
+        let selectedPackage = null;
+        let selectedPaymentMethod = 'wallet';
+        let packages = [];
+
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const networkParam = urlParams.get('network');
+
+        // Initialize app
+        async function initializeApp() {
+            try {
+                // Check authentication
+                const userResponse = await fetch('/api/user');
+                const userResult = await userResponse.json();
+                
+                if (userResult.success && userResult.user) {
+                    currentUser = userResult.user;
+                    updateUserAvatar();
+                    await loadWalletBalance();
+                    await initializeNetwork();
+                    await loadPackages();
+                    setupEventListeners();
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('Initialization error:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        // Update user avatar
+        function updateUserAvatar() {
+            if (currentUser && currentUser.displayName) {
+                const names = currentUser.displayName.split(' ');
+                const initials = names.map(name => name[0]).join('').toUpperCase();
+                document.getElementById('userAvatar').textContent = initials;
+            }
+        }
+
+        // Load wallet balance
+        async function loadWalletBalance() {
+            try {
+                const response = await fetch('/api/wallet/balance');
+                const result = await response.json();
+                
+                if (result.success) {
+                    userBalance = result.balance;
+                    document.getElementById('balanceText').textContent = `₵${userBalance.toFixed(2)}`;
+                    document.getElementById('balanceLoading').style.display = 'none';
+                    document.getElementById('balanceText').style.display = 'inline';
+                }
+            } catch (error) {
+                console.error('Failed to load wallet balance:', error);
+                document.getElementById('balanceText').textContent = '₵0.00';
+                document.getElementById('balanceLoading').style.display = 'none';
+                document.getElementById('balanceText').style.display = 'inline';
+            }
+        }
+
+        // Initialize network selection
+        function initializeNetwork() {
+            if (networkParam && ['mtn', 'at'].includes(networkParam)) {
+                selectedNetwork = networkParam;
+                const networkName = networkParam === 'mtn' ? 'MTN' : 'AirtelTigo';
+                document.getElementById('networkName').textContent = networkName;
+            } else {
+                // Default to MTN if no valid network in URL
+                selectedNetwork = 'mtn';
+                document.getElementById('networkName').textContent = 'MTN';
+            }
+        }
+
+        // Load data packages
+        async function loadPackages() {
+            try {
+                const response = await fetch(`/api/packages/${selectedNetwork}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    packages = result.packages;
+                    displayPackages();
+                } else {
+                    throw new Error('Failed to load packages');
+                }
+            } catch (error) {
+                console.error('Package loading error:', error);
+                document.getElementById('packagesList').innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
+                        <p class="text-muted">Failed to load packages. Please try again.</p>
+                        <button class="btn btn-sm btn-primary" onclick="loadPackages()">
+                            <i class="fas fa-redo me-1"></i>Retry
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // Display packages
+        function displayPackages() {
+            const packagesList = document.getElementById('packagesList');
+            
+            if (packages.length === 0) {
+                packagesList.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-box-open fa-2x text-muted mb-2"></i>
+                        <p class="text-muted">No packages available for this network.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort packages by volume
+            const sortedPackages = [...packages].sort((a, b) => {
+                const getVolume = (pkg) => {
+                    if (pkg.name) {
+                        const volumeMatch = pkg.name.match(/\d+/);
+                        return volumeMatch ? parseInt(volumeMatch[0]) : 0;
+                    }
+                    return 0;
+                };
+                return getVolume(a) - getVolume(b);
+            });
+
+            packagesList.innerHTML = sortedPackages.map(pkg => {
+                return `
+                <div class="package-card" 
+                     onclick="selectPackage('${pkg.id}')">
+                    <div class="package-name">${pkg.name}</div>
+                    <div class="package-details">${pkg.validity}</div>
+                    <div class="package-features">
+                        <span class="feature">
+                            <i class="fas fa-bolt"></i>
+                            <span>High Speed</span>
+                        </span>
+                        <span class="feature">
+                            <i class="fas fa-mobile-alt"></i>
+                            <span>All Devices</span>
+                        </span>
+                    </div>
+                    <div class="package-price">₵${pkg.price.toFixed(2)}</div>
+                </div>
+                `;
+            }).join('');
+            
+            // Reset selection
+            selectedPackage = null;
+            updatePurchaseButtons();
+        }
+
+        // Select package
+        function selectPackage(packageId) {
+            // Find the package in the packages array
+            selectedPackage = packages.find(pkg => pkg.id === packageId);
+            
+            if (!selectedPackage) {
+                console.error('Package not found:', packageId);
+                return;
+            }
+
+            // Remove selection from all packages
+            document.querySelectorAll('.package-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Add selection to clicked package
+            const selectedCard = event.target.closest('.package-card');
+            if (selectedCard) {
+                selectedCard.classList.add('selected');
+            }
+            
+            // Update purchase buttons
+            updatePurchaseButtons();
+        }
+
+        // Select payment method
+        function selectPaymentMethod(method) {
+            selectedPaymentMethod = method;
+            
+            // Update UI
+            document.querySelectorAll('.payment-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            event.target.closest('.payment-option').classList.add('selected');
+            
+            // Show/hide appropriate button
+            if (method === 'wallet') {
+                document.getElementById('walletPurchaseBtn').style.display = 'block';
+                document.getElementById('directPurchaseBtn').style.display = 'none';
+            } else {
+                document.getElementById('walletPurchaseBtn').style.display = 'none';
+                document.getElementById('directPurchaseBtn').style.display = 'block';
+            }
+            
+            updatePurchaseButtons();
+        }
+
+        // Update purchase buttons state
+        function updatePurchaseButtons() {
+            const walletBtn = document.getElementById('walletPurchaseBtn');
+            const directBtn = document.getElementById('directPurchaseBtn');
+            const walletText = document.getElementById('walletPurchaseText');
+            const directText = document.getElementById('directPurchaseText');
+            const phoneNumber = document.getElementById('phoneNumber').value;
+
+            if (!selectedPackage) {
+                walletBtn.disabled = true;
+                directBtn.disabled = true;
+                walletText.textContent = 'Select a package to continue';
+                directText.textContent = 'Select a package to continue';
+                return;
+            }
+
+            if (!phoneNumber || !/^\d{10}$/.test(phoneNumber)) {
+                walletBtn.disabled = true;
+                directBtn.disabled = true;
+                walletText.textContent = 'Enter valid phone number';
+                directText.textContent = 'Enter valid phone number';
+                return;
+            }
+
+            // For wallet payment, check balance
+            if (selectedPaymentMethod === 'wallet' && userBalance < selectedPackage.price) {
+                walletBtn.disabled = true;
+                walletText.textContent = 'Insufficient balance';
+                return;
+            }
+
+            // Enable buttons
+            walletBtn.disabled = false;
+            directBtn.disabled = false;
+            walletText.textContent = `Pay ₵${selectedPackage.price.toFixed(2)} with Wallet`;
+            directText.textContent = `Pay ₵${selectedPackage.price.toFixed(2)} Now`;
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Phone number input
+            document.getElementById('phoneNumber').addEventListener('input', updatePurchaseButtons);
+        }
+
+        // Purchase with wallet balance
+        async function purchaseWithWallet() {
+            if (!selectedPackage || !currentUser) return;
+
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            const walletBtn = document.getElementById('walletPurchaseBtn');
+            const walletText = document.getElementById('walletPurchaseText');
+            const walletLoading = document.getElementById('walletPurchaseLoading');
+
+            // Validation
+            if (!/^\d{10}$/.test(phoneNumber)) {
+                notyf.error('Please enter a valid 10-digit phone number');
+                return;
+            }
+
+            if (userBalance < selectedPackage.price) {
+                notyf.error('Insufficient balance. Please fund your wallet.');
+                window.location.href = '/wallet';
+                return;
+            }
+
+            // Show loading state
+            walletBtn.disabled = true;
+            walletText.textContent = 'Processing...';
+            walletLoading.style.display = 'inline-block';
+
+            try {
+                // Extract volume from package name
+                let volume = '1';
+                if (selectedPackage.name) {
+                    const volumeMatch = selectedPackage.name.match(/\d+/);
+                    if (volumeMatch) {
+                        volume = volumeMatch[0];
+                    }
+                }
+
+                const response = await fetch('/api/purchase-data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        network: selectedNetwork,
+                        volume: volume,
+                        phoneNumber: phoneNumber,
+                        amount: selectedPackage.price,
+                        packageName: selectedPackage.name
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    notyf.success('Data purchase successful!');
+                    
+                    // Update balance
+                    userBalance = result.newBalance;
+                    document.getElementById('balanceText').textContent = `₵${userBalance.toFixed(2)}`;
+                    
+                    // Redirect to orders page after success
+                    setTimeout(() => {
+                        window.location.href = '/orders';
+                    }, 2000);
+                } else {
+                    throw new Error(result.error || 'Purchase failed');
+                }
+            } catch (error) {
+                console.error('Purchase error:', error);
+                notyf.error(error.message);
+                
+                // Reset button state
+                walletBtn.disabled = false;
+                walletText.textContent = `Pay ₵${selectedPackage.price.toFixed(2)} with Wallet`;
+                walletLoading.style.display = 'none';
+            }
+        }
+
+        // Purchase with direct payment - SIMPLIFIED (Backend handles Paystack)
+async function purchaseWithDirectPayment() {
+    if (!selectedPackage || !currentUser) return;
+
+    const phoneNumber = document.getElementById('phoneNumber').value;
+    const directBtn = document.getElementById('directPurchaseBtn');
+    const directText = document.getElementById('directPurchaseText');
+    const directLoading = document.getElementById('directPurchaseLoading');
+
+    // Validation
+    if (!/^\d{10}$/.test(phoneNumber)) {
+        notyf.error('Please enter a valid 10-digit phone number');
+        return;
+    }
+
+    // Show loading state
+    directBtn.disabled = true;
+    directText.textContent = 'Initializing Payment...';
+    directLoading.style.display = 'inline-block';
+
+    try {
+        console.log('🔄 Initializing direct payment for:', {
+            amount: selectedPackage.price,
+            phoneNumber: phoneNumber,
+            network: selectedNetwork,
+            package: selectedPackage.name
+        });
+
+        // Initialize direct payment with your server
+        const response = await fetch('/api/initialize-direct-payment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                amount: selectedPackage.price,
+                phoneNumber: phoneNumber,
+                network: selectedNetwork,
+                packageName: selectedPackage.name
+            })
+        });
+
+        const result = await response.json();
+
+        console.log('💰 Server response:', result);
+
+        if (result.status && result.data && result.data.authorization_url) {
+            console.log('✅ Redirecting to Paystack...');
+            // Redirect to Paystack authorization URL (backend handles the key)
+            window.location.href = result.data.authorization_url;
+        } else {
+            throw new Error(result.message || 'Failed to initialize payment');
+        }
+    } catch (error) {
+        console.error('Direct payment error:', error);
+        notyf.error('Payment failed: ' + error.message);
+        
+        // Reset button state
+        directBtn.disabled = false;
+        directText.textContent = `Pay ₵${selectedPackage.price.toFixed(2)} Now`;
+        directLoading.style.display = 'none';
+    }
+}
+
+        // Process direct purchase after payment verification
+        async function processDirectPurchase(reference) {
+            try {
+                notyf.success('Processing your data purchase...');
+
+                const response = await fetch(`/api/process-direct-purchase/${reference}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    notyf.success('Data purchase successful!');
+                    
+                    // Redirect to orders page
+                    setTimeout(() => {
+                        window.location.href = '/orders';
+                    }, 2000);
+                } else {
+                    throw new Error(result.error || 'Purchase processing failed');
+                }
+            } catch (error) {
+                console.error('Direct purchase processing error:', error);
+                notyf.error('Purchase failed: ' + error.message);
+            }
+        }
+
+        // Initialize app when page loads
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>
