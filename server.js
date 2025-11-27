@@ -10,6 +10,12 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+// If running behind a proxy (Cloudflare, Heroku, Render, etc.) the
+// 'X-Forwarded-For' header will be set. express-rate-limit validates
+// this header when present and requires Express to trust the proxy.
+// Enable trusting the first proxy by default — adjust to your deployment
+// topology if you need a different value (e.g. a number or IP list).
+app.set('trust proxy', true);
 
 // Enhanced environment validation
 const requiredEnvVars = [
@@ -167,10 +173,17 @@ app.use((req, res, next) => {
     return next();
   }
   
+  // Development bypass: do not enforce domain restrictions when not in production
+  if (process.env.NODE_ENV !== 'production') {
+    // Log host/origin to help diagnose local dev issues
+    console.log('Domain check bypass (dev). host:', host, 'origin:', origin, 'path:', req.path);
+    return next();
+  }
+
   const isAllowed = allowedDomains.some(domain => 
     host?.includes(domain) || origin?.includes(domain)
   );
-  
+
   if (!isAllowed) {
     console.log('🚫 Blocked access from:', { host, origin, path: req.path });
     return res.status(403).json({ 
@@ -178,7 +191,7 @@ app.use((req, res, next) => {
       error: 'Access forbidden - Domain not allowed'
     });
   }
-  
+
   next();
 });
 
@@ -250,6 +263,7 @@ app.get('/wallet', requireAuth, (req, res) => {
 });
 
 app.get('/orders', requireAuth, (req, res) => {
+  // Serve the orders page (replaced with new content)
   res.sendFile(path.join(__dirname, 'public', 'orders.html'));
 });
 
@@ -794,9 +808,411 @@ app.get('/api/verify-payment/:reference', requireAuth, async (req, res) => {
   }
 });
 
+// NEW: Initialize direct data purchase payment (Paystack)
+app.post('/api/initialize-direct-payment', requireAuth, async (req, res) => {
+  try {
+    const { amount, phoneNumber, network, packageName } = req.body;
+    const userId = req.session.user.uid;
+    const email = req.session.user.email;
+    
+    console.log('🔄 Direct payment initialization:', { amount, phoneNumber, network, packageName });
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid amount' 
+      });
+    }
+
+    if (!phoneNumber || !/^\d{10}$/.test(phoneNumber)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid phone number' 
+      });
+    }
+
+    if (!network || !['mtn', 'at'].includes(network)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid network' 
+      });
+    }
+
+    if (!packageName) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Package name is required' 
+      });
+    }
+
+    // Create initial order record for tracking
+    const transactionRef = admin.database().ref('transactions').push();
+    const transactionId = transactionRef.key;
+    const reference = `DSPAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Calculate Paystack fee (3% of amount)
+    const paystackFeePercentage = 0.03;
+    const paystackFee = parseFloat((amount * paystackFeePercentage).toFixed(2));
+    const amountWithFee = parseFloat((amount + paystackFee).toFixed(2));
+
+    console.log('💰 Fee calculation:', { 
+      originalAmount: amount, 
+      paystackFee: paystackFee,
+      totalWithFee: amountWithFee
+    });
+
+    // Save pending order before payment
+    await transactionRef.set({
+      userId,
+      network,
+      packageName,
+      volume: '0',
+      phoneNumber,
+      amount,
+      paystackFee: paystackFee,
+      totalAmount: amountWithFee,
+      status: 'pending_payment',
+      reference: reference,
+      transactionId: null,
+      hubnetTransactionId: null,
+      hubnetResponse: null,
+      paystackReference: null,
+      paymentMethod: 'direct_paystack',
+      timestamp: new Date().toISOString(),
+      createdAt: new Date().toISOString()
+    });
+
+    console.log('✅ Pending order created:', { transactionId, reference });
+
+    // Initialize Paystack payment with total amount (including fee)
+    const paystackResponse = await axios.post(
+      `${process.env.PAYSTACK_BASE_URL}/transaction/initialize`,
+      {
+        email,
+        amount: Math.ceil(amountWithFee * 100), // Paystack expects amount in kobo (1/100 of cedi)
+        callback_url: `${process.env.BASE_URL}/purchase?verify=true&reference={REFERENCE}`,
+        metadata: {
+          userId: userId,
+          transactionId: transactionId,
+          reference: reference,
+          purpose: 'direct_data_purchase',
+          network: network,
+          packageName: packageName,
+          phoneNumber: phoneNumber,
+          originalAmount: amount,
+          paystackFee: paystackFee,
+          totalAmount: amountWithFee
+        }
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      }
+    );
+
+    const paystackData = paystackResponse.data;
+    
+    if (paystackData.status) {
+      // Update order with Paystack reference
+      await transactionRef.update({
+        paystackReference: paystackData.data.reference
+      });
+
+      console.log('✅ Paystack initialized:', {
+        reference: paystackData.data.reference,
+        authorizationUrl: paystackData.data.authorization_url
+      });
+
+      res.json({
+        status: true,
+        data: {
+          authorization_url: paystackData.data.authorization_url,
+          reference: paystackData.data.reference,
+          access_code: paystackData.data.access_code
+        },
+        message: 'Payment initialization successful'
+      });
+    } else {
+      // Update order to failed
+      await transactionRef.update({
+        status: 'failed',
+        reason: 'Paystack initialization failed'
+      });
+
+      throw new Error('Paystack initialization failed');
+    }
+  } catch (error) {
+    console.error('❌ Direct payment initialization error:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      error: error.response?.data?.message || error.message || 'Payment initialization failed' 
+    });
+  }
+});
+
+// NEW: Verify direct data purchase payment from Paystack
+app.get('/api/verify-direct-payment/:reference', requireAuth, async (req, res) => {
+  try {
+    const { reference } = req.params;
+    const userId = req.session.user.uid;
+
+    console.log('🔍 Verifying direct payment:', { reference, userId });
+
+    // Verify with Paystack
+    const paystackResponse = await axios.get(
+      `${process.env.PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.PAYSTACK_SECRET_KEY}`
+        },
+        timeout: 15000
+      }
+    );
+
+    const paystackData = paystackResponse.data;
+
+    if (!paystackData.status || !paystackData.data) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid payment verification response' 
+      });
+    }
+
+    // Find the pending order by reference
+    const transactionsSnapshot = await admin.database()
+      .ref('transactions')
+      .orderByChild('reference')
+      .equalTo(paystackData.data.metadata?.reference || '')
+      .once('value');
+
+    const transactions = transactionsSnapshot.val() || {};
+    const transactionEntry = Object.entries(transactions).find(([_, tx]) => tx.userId === userId);
+
+    if (!transactionEntry) {
+      console.log('⚠️ No pending order found for payment:', reference);
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Order not found' 
+      });
+    }
+
+    const [txId, txData] = transactionEntry;
+    const metadata = paystackData.data.metadata || {};
+
+    if (paystackData.data.status === 'success') {
+      console.log('✅ Payment successful, processing data purchase...');
+
+      // Extract purchase details from metadata
+      const { network, packageName, phoneNumber } = metadata;
+      const amount = paystackData.data.amount / 100; // Convert from kobo to cedi
+
+      if (!network || !packageName || !phoneNumber) {
+        console.error('❌ Missing purchase details in metadata:', metadata);
+        await admin.database().ref(`transactions/${txId}`).update({
+          status: 'failed',
+          reason: 'Missing purchase details'
+        });
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Missing purchase details' 
+        });
+      }
+
+      // Get user data for Hubnet call
+      const userSnapshot = await admin.database().ref('users/' + userId).once('value');
+      const userData = userSnapshot.val();
+
+      if (!userData) {
+        await admin.database().ref(`transactions/${txId}`).update({
+          status: 'failed',
+          reason: 'User not found'
+        });
+        return res.status(404).json({ 
+          success: false, 
+          error: 'User not found' 
+        });
+      }
+
+      // Convert volume if needed
+      let volumeValue = metadata.volume || txData.volume || '1';
+      if (volumeValue && parseInt(volumeValue) < 100) {
+        volumeValue = (parseInt(volumeValue) * 1000).toString();
+      }
+
+      // Process with Hubnet
+      try {
+        const hubnetResponse = await axios.post(
+          `https://console.hubnet.app/live/api/context/business/transaction/${network}-new-transaction`,
+          {
+            phone: phoneNumber,
+            volume: volumeValue,
+            reference: txData.reference,
+            referrer: userData.phone || '',
+            webhook: `${process.env.BASE_URL}/api/hubnet-webhook`
+          },
+          {
+            headers: {
+              'token': `Bearer ${process.env.HUBNET_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 30000
+          }
+        );
+
+        const hubnetData = hubnetResponse.data;
+        console.log('📡 Hubnet response:', hubnetData);
+
+        // Handle nested data structure from Hubnet
+        let processedHubnetData = hubnetData.data || hubnetData;
+        
+        if (hubnetData.data) {
+          console.log('📡 Hubnet data is nested, using inner data object');
+          processedHubnetData = hubnetData.data;
+        }
+
+        if (processedHubnetData.status === true && processedHubnetData.code === "0000") {
+          // SUCCESS: Mark as delivered
+          await admin.database().ref(`transactions/${txId}`).update({
+            status: 'success',
+            transactionId: processedHubnetData.transaction_id,
+            hubnetTransactionId: processedHubnetData.transaction_id,
+            hubnetResponse: processedHubnetData,
+            paystackReference: reference,
+            paystackData: {
+              reference: paystackData.data.reference,
+              amount: paystackData.data.amount,
+              status: paystackData.data.status
+            },
+            verifiedAt: new Date().toISOString()
+          });
+
+          console.log('✅ Direct purchase completed successfully:', {
+            transactionId: txId,
+            hubnetTransactionId: processedHubnetData.transaction_id
+          });
+
+          res.json({ 
+            success: true,
+            message: 'Data purchase successful!',
+            transactionId: txId,
+            hubnetTransactionId: processedHubnetData.transaction_id
+          });
+        } else {
+          // FAILED at Hubnet
+          await admin.database().ref(`transactions/${txId}`).update({
+            status: 'failed',
+            hubnetResponse: processedHubnetData,
+            paystackReference: reference,
+            reason: processedHubnetData.reason || processedHubnetData.message || `Hubnet error: ${processedHubnetData.code}`
+          });
+
+          console.log('❌ Hubnet transaction failed:', processedHubnetData);
+          
+          // Check if it's a provider balance issue
+          const isOutOfStock = isProviderBalanceError(processedHubnetData);
+          console.log('🔍 Balance error check:', { isOutOfStock, processedHubnetData });
+          const errorMessage = isOutOfStock ? 'Out of Stock - Please try again later' : (processedHubnetData.reason || processedHubnetData.message || 'Data delivery failed');
+
+          res.status(400).json({ 
+            success: false, 
+            error: errorMessage,
+            isOutOfStock: isOutOfStock,
+            hubnetCode: hubnetData.code
+          });
+        }
+      } catch (hubnetError) {
+        console.error('❌ Hubnet error:', hubnetError.message);
+        
+        // Check if it's an Axios error with response data (e.g., 400 from Hubnet)
+        if (hubnetError.response && hubnetError.response.data) {
+          const hubnetErrorData = hubnetError.response.data;
+          console.log('📡 Hubnet error response:', hubnetErrorData);
+          
+          await admin.database().ref(`transactions/${txId}`).update({
+            status: 'failed',
+            paystackReference: reference,
+            hubnetResponse: hubnetErrorData,
+            reason: hubnetErrorData.reason || hubnetErrorData.message || 'Hubnet error'
+          });
+          
+          // Check if it's a provider balance issue
+          const isOutOfStock = isProviderBalanceError(hubnetErrorData);
+          console.log('🔍 Balance error check (from catch):', { isOutOfStock, hubnetErrorData });
+          const errorMessage = isOutOfStock ? 'Out of Stock - Please try again later' : (hubnetErrorData.reason || hubnetErrorData.message || 'Data delivery failed');
+          
+          return res.status(400).json({ 
+            success: false, 
+            error: errorMessage,
+            isOutOfStock: isOutOfStock
+          });
+        }
+        
+        // Handle other errors
+        await admin.database().ref(`transactions/${txId}`).update({
+          status: 'failed',
+          paystackReference: reference,
+          reason: 'Hubnet error: ' + hubnetError.message
+        });
+
+        res.status(500).json({ 
+          success: false, 
+          error: 'Failed to process data purchase: ' + hubnetError.message
+        });
+      }
+    } else {
+      // Payment not successful
+      console.log('❌ Payment status not success:', paystackData.data.status);
+      
+      await admin.database().ref(`transactions/${txId}`).update({
+        status: 'failed',
+        paystackReference: reference,
+        reason: `Payment ${paystackData.data.status}`
+      });
+
+      res.status(400).json({ 
+        success: false, 
+        error: `Payment ${paystackData.data.status}` 
+      });
+    }
+  } catch (error) {
+    console.error('❌ Direct payment verification error:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Payment verification failed: ' + error.message 
+    });
+  }
+});
+
 // ====================
 // ENHANCED DATA PURCHASE ROUTES
 // ====================
+
+// Helper function to check if Hubnet error is due to provider balance
+function isProviderBalanceError(hubnetData) {
+  if (!hubnetData) return false;
+  
+  const code = String(hubnetData.code || hubnetData.status_code || '').toLowerCase();
+  const reason = String(hubnetData.reason || hubnetData.message || '').toLowerCase();
+  const event = String(hubnetData.event || '').toLowerCase();
+  const fullResponse = JSON.stringify(hubnetData || {}).toLowerCase();
+  
+  // Check for common Hubnet balance error codes and messages
+  const balanceErrorKeywords = [
+    'insufficient', 'balance', 'low balance', 'out of stock', 'unavailable', 
+    'account balance', 'transaction', 'no stock', 'low', 'rejected'
+  ];
+  
+  // Check if any balance error keyword appears in code, reason, or message
+  return balanceErrorKeywords.some(keyword => 
+    code.includes(keyword) || 
+    reason.includes(keyword) || 
+    event.includes(keyword) ||
+    fullResponse.includes(keyword)
+  );
+}
 
 // Enhanced Get packages
 app.get('/api/packages/:network', requireAuth, async (req, res) => {
@@ -947,28 +1363,37 @@ app.post('/api/purchase-data', requireAuth, async (req, res) => {
 
     const hubnetData = hubnetResponse.data;
     console.log('📡 Hubnet response:', hubnetData);
+    console.log('📡 Hubnet response full:', JSON.stringify(hubnetData, null, 2));
 
-    if (hubnetData.status === true && hubnetData.code === "0000") {
+    // Handle nested data structure from Hubnet
+    let processedHubnetData = hubnetData.data || hubnetData;
+    
+    if (hubnetData.data) {
+      console.log('📡 Hubnet data is nested, using inner data object');
+      processedHubnetData = hubnetData.data;
+    }
+
+    if (processedHubnetData.status === true && processedHubnetData.code === "0000") {
       // SUCCESS: Deduct balance and update order
       const newBalance = userData.walletBalance - amount;
       await userRef.update({ walletBalance: newBalance });
 
       await transactionRef.update({
         status: 'success',
-        transactionId: hubnetData.transaction_id,
-        hubnetTransactionId: hubnetData.transaction_id,
-        hubnetResponse: hubnetData
+        transactionId: processedHubnetData.transaction_id,
+        hubnetTransactionId: processedHubnetData.transaction_id,
+        hubnetResponse: processedHubnetData
       });
 
       console.log('✅ Purchase successful, order updated to success:', {
         reference: reference,
-        transactionId: hubnetData.transaction_id,
+        transactionId: processedHubnetData.transaction_id,
         newBalance: newBalance
       });
 
       res.json({ 
         success: true, 
-        data: hubnetData,
+        data: processedHubnetData,
         newBalance: newBalance,
         reference: reference,
         message: 'Data purchase successful!'
@@ -977,15 +1402,21 @@ app.post('/api/purchase-data', requireAuth, async (req, res) => {
       // FAILURE: Update order status but DON'T deduct balance
       await transactionRef.update({
         status: 'failed',
-        hubnetResponse: hubnetData,
-        reason: hubnetData.reason || `Hubnet error: ${hubnetData.code}`
+        hubnetResponse: processedHubnetData,
+        reason: processedHubnetData.reason || processedHubnetData.message || `Hubnet error: ${processedHubnetData.code}`
       });
 
       console.log('❌ Purchase failed, order updated to failed');
 
+      // Check if it's a provider balance issue
+      const isOutOfStock = isProviderBalanceError(processedHubnetData);
+      console.log('🔍 Balance error check:', { isOutOfStock, processedHubnetData });
+      const errorMessage = isOutOfStock ? 'Out of Stock - Please try again later' : (processedHubnetData.reason || processedHubnetData.message || 'Purchase failed');
+
       res.status(400).json({ 
         success: false, 
-        error: hubnetData.reason || 'Purchase failed',
+        error: errorMessage,
+        isOutOfStock: isOutOfStock,
         hubnetCode: hubnetData.code
       });
     }
@@ -993,6 +1424,32 @@ app.post('/api/purchase-data', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('❌ Purchase error:', error);
     
+    // Check if it's an Axios error with response data (e.g., 400 from Hubnet)
+    if (error.response && error.response.data) {
+      const hubnetErrorData = error.response.data;
+      console.log('📡 Hubnet error response:', hubnetErrorData);
+      
+      if (transactionRef) {
+        await transactionRef.update({
+          status: 'failed',
+          hubnetResponse: hubnetErrorData,
+          reason: hubnetErrorData.reason || hubnetErrorData.message || 'Hubnet error'
+        });
+      }
+      
+      // Check if it's a provider balance issue
+      const isOutOfStock = isProviderBalanceError(hubnetErrorData);
+      console.log('🔍 Balance error check (from catch):', { isOutOfStock, hubnetErrorData });
+      const errorMessage = isOutOfStock ? 'Out of Stock - Please try again later' : (hubnetErrorData.reason || hubnetErrorData.message || 'Purchase failed');
+      
+      return res.status(400).json({ 
+        success: false, 
+        error: errorMessage,
+        isOutOfStock: isOutOfStock
+      });
+    }
+    
+    // Handle other errors
     if (transactionRef) {
       await transactionRef.update({
         status: 'failed',
@@ -1002,9 +1459,7 @@ app.post('/api/purchase-data', requireAuth, async (req, res) => {
     }
     
     let errorMessage = 'Purchase failed';
-    if (error.response) {
-      errorMessage = error.response.data?.reason || error.response.data?.message || error.message;
-    } else if (error.code === 'ECONNABORTED') {
+    if (error.code === 'ECONNABORTED') {
       errorMessage = 'Request timeout. Please check your connection and try again.';
     }
     
@@ -1058,6 +1513,18 @@ app.get('/api/admin/dashboard/stats', requireAdmin, async (req, res) => {
     const weekRevenue = weekTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
     const monthRevenue = monthTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
 
+    // Calculate Paystack fees (3%)
+    const totalPaystackFees = transactionsArray.reduce((sum, t) => sum + (t.paystackFee || 0), 0);
+    const todayPaystackFees = todayTransactions.reduce((sum, t) => sum + (t.paystackFee || 0), 0);
+    const weekPaystackFees = weekTransactions.reduce((sum, t) => sum + (t.paystackFee || 0), 0);
+    const monthPaystackFees = monthTransactions.reduce((sum, t) => sum + (t.paystackFee || 0), 0);
+
+    // Net revenue (after Paystack fees)
+    const netRevenue = totalRevenue - totalPaystackFees;
+    const todayNetRevenue = todayRevenue - todayPaystackFees;
+    const weekNetRevenue = weekRevenue - weekPaystackFees;
+    const monthNetRevenue = monthRevenue - monthPaystackFees;
+
     // Top packages
     const packageSales = {};
     transactionsArray.forEach(t => {
@@ -1081,11 +1548,19 @@ app.get('/api/admin/dashboard/stats', requireAdmin, async (req, res) => {
       totalUsers: usersArray.length,
       totalTransactions: transactionsArray.length,
       totalRevenue,
+      netRevenue: parseFloat(netRevenue.toFixed(2)),
+      totalPaystackFees: parseFloat(totalPaystackFees.toFixed(2)),
       successfulTransactions: transactionsArray.filter(t => t.status === 'success').length,
       todayTransactions: todayTransactions.length,
       todayRevenue,
+      todayNetRevenue: parseFloat(todayNetRevenue.toFixed(2)),
+      todayPaystackFees: parseFloat(todayPaystackFees.toFixed(2)),
       weekRevenue,
+      weekNetRevenue: parseFloat(weekNetRevenue.toFixed(2)),
+      weekPaystackFees: parseFloat(weekPaystackFees.toFixed(2)),
       monthRevenue,
+      monthNetRevenue: parseFloat(monthNetRevenue.toFixed(2)),
+      monthPaystackFees: parseFloat(monthPaystackFees.toFixed(2)),
       newUsers: usersArray.filter(u => new Date(u.createdAt) >= monthAgo).length,
       topPackages,
       networkStats,
